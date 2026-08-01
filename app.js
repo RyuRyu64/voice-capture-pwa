@@ -24,7 +24,7 @@ const settings = {
 // ハンズフリー: 設定ON、またはURLに ?auto=1（Siriショートカットから起動する用）
 const autoMode = () => settings.auto || new URLSearchParams(location.search).has('auto');
 // 無音検知パラメータ: 発話後この時間静かなら録音終了
-const SILENCE_MS = 2500, MIN_REC_MS = 1500, MAX_REC_MS = 90000, LOUD_THRESHOLD = 12;
+const SILENCE_MS = 1500, MIN_REC_MS = 1500, MAX_REC_MS = 90000, LOUD_THRESHOLD = 12;
 
 let draft = null; // {transcript, type, title, slug, what, where, when, urgency, tags, body}
 
