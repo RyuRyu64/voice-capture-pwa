@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>キャプチャ</title>
+<meta name="description" content="喋るだけでアイデア・TODOを構造化してリポジトリに保存">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="キャプチャ">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<!-- ホーム画面 -->
+<main id="view-home" class="view">
+  <header class="large-title-bar">
+    <h1>キャプチャ</h1>
+    <button id="btn-settings" class="icon-btn" aria-label="設定">⚙︎</button>
+  </header>
+  <section id="setup-banner" class="banner hidden">
+    <p>はじめに設定から Groq APIキー と GitHub PAT を登録してください。</p>
+    <button id="btn-goto-settings" class="text-btn">設定を開く</button>
+  </section>
+  <section class="history-section">
+    <h2 class="section-label">最近のキャプチャ</h2>
+    <ul id="history-list" class="card-list"></ul>
+    <p id="history-empty" class="empty-note">まだキャプチャはありません。<br>下の＋ボタンから始めましょう。</p>
+  </section>
+  <div class="fab-area">
+    <button id="btn-capture" class="fab" aria-label="新規キャプチャ">＋</button>
+  </div>
+</main>
+
+<!-- 設定画面 -->
+<main id="view-settings" class="view hidden">
+  <header class="nav-bar">
+    <button id="btn-settings-back" class="text-btn">‹ 戻る</button>
+    <h1 class="nav-title">設定</h1>
+    <span class="nav-spacer"></span>
+  </header>
+  <section class="form-group">
+    <h2 class="section-label">APIキー（端末内にのみ保存されます）</h2>
+    <div class="form-card">
+      <label class="form-row">
+        <span>Groq APIキー</span>
+        <input type="password" id="input-groq" placeholder="gsk_..." autocomplete="off">
+      </label>
+      <label class="form-row">
+        <span>GitHub PAT</span>
+        <input type="password" id="input-pat" placeholder="github_pat_..." autocomplete="off">
+      </label>
+      <label class="form-row">
+        <span>リポジトリ</span>
+        <input type="text" id="input-repo" placeholder="RyuRyu64/To-Do-Manager" autocomplete="off">
+      </label>
+    </div>
+    <p class="form-note">キーはこの端末の localStorage にのみ保存され、GroqとGitHub以外には送信されません。</p>
+    <button id="btn-save-settings" class="primary-btn">保存</button>
+    <p id="settings-saved" class="form-note ok hidden">保存しました ✓</p>
+  </section>
+</main>
+
+<!-- キャプチャシート -->
+<div id="sheet-backdrop" class="backdrop hidden"></div>
+<section id="sheet" class="sheet hidden" role="dialog" aria-modal="true">
+  <div class="sheet-handle"></div>
+
+  <!-- 録音ステージ -->
+  <div id="stage-record" class="stage">
+    <p id="rec-status" class="stage-title">タップして録音開始</p>
+    <div id="level-meter" class="level-meter">
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <button id="btn-rec" class="rec-btn" aria-label="録音">
+      <span class="rec-dot"></span>
+    </button>
+    <button id="btn-text-mode" class="text-btn">キーボードで入力する</button>
+  </div>
+
+  <!-- テキスト入力ステージ -->
+  <div id="stage-text" class="stage hidden">
+    <p class="stage-title">テキストで入力</p>
+    <textarea id="text-input" rows="5" placeholder="例: ユニクロオンラインで短パン買う。帰ったらすぐやる"></textarea>
+    <button id="btn-text-submit" class="primary-btn">構造化する</button>
+    <button id="btn-voice-mode" class="text-btn">音声に戻る</button>
+  </div>
+
+  <!-- 処理中ステージ -->
+  <div id="stage-processing" class="stage hidden">
+    <div class="spinner"></div>
+    <p id="processing-label" class="stage-title">文字起こし中…</p>
+  </div>
+
+  <!-- プレビューステージ -->
+  <div id="stage-preview" class="stage hidden">
+    <p class="stage-title">確認して保存</p>
+    <div class="seg-control" id="seg-type">
+      <button data-type="idea">アイデア</button>
+      <button data-type="todo">TODO</button>
+      <button data-type="note">メモ</button>
+    </div>
+    <div class="form-card compact">
+      <label class="form-row"><span>タイトル</span><input type="text" id="pv-title"></label>
+      <label class="form-row"><span>何を</span><input type="text" id="pv-what"></label>
+      <label class="form-row"><span>どこで</span><input type="text" id="pv-where"></label>
+      <label class="form-row"><span>いつ</span><input type="text" id="pv-when"></label>
+      <label class="form-row"><span>緊急度</span>
+        <select id="pv-urgency"><option>高</option><option>中</option><option>低</option><option>不明</option></select>
+      </label>
+      <label class="form-row"><span>タグ</span><input type="text" id="pv-tags" placeholder="カンマ区切り"></label>
+    </div>
+    <textarea id="pv-body" rows="3" placeholder="本文"></textarea>
+    <details class="transcript-box">
+      <summary>元の文字起こしを見る</summary>
+      <p id="pv-transcript"></p>
+    </details>
+    <button id="btn-save" class="primary-btn">保存する</button>
+    <button id="btn-redo" class="text-btn">録り直す</button>
+  </div>
+
+  <!-- 完了ステージ -->
+  <div id="stage-done" class="stage hidden">
+    <p class="done-mark">✓</p>
+    <p class="stage-title">保存しました</p>
+    <p id="done-detail" class="done-detail"></p>
+    <button id="btn-done-close" class="primary-btn">閉じる</button>
+    <button id="btn-done-again" class="text-btn">続けてキャプチャ</button>
+  </div>
+
+  <div id="sheet-error" class="error-box hidden">
+    <p id="sheet-error-msg"></p>
+    <button id="btn-error-retry" class="text-btn">やり直す</button>
+  </div>
+</section>
+
+<script src="./app.js"></script>
+</body>
+</html>
