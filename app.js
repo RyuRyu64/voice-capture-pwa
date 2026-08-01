@@ -476,6 +476,26 @@ function init() {
     setTimeout(() => $('#settings-saved').classList.add('hidden'), 2000);
   };
 
+  // 再インストールや別ブラウザへの引っ越し用（キーはクリップボード経由・手動でのみ移動）
+  $('#btn-export').onclick = async () => {
+    const data = JSON.stringify({ groq: settings.groqKey, pat: settings.pat, repo: settings.repo, auto: settings.auto });
+    try {
+      await navigator.clipboard.writeText(data);
+      alert('設定をコピーしました。メモ帳やパスワードマネージャーに控えてください。');
+    } catch { prompt('コピーできない場合は手動でコピーしてください:', data); }
+  };
+  $('#btn-import').onclick = () => {
+    const raw = prompt('書き出した設定を貼り付けてください:');
+    if (!raw) return;
+    try {
+      const d = JSON.parse(raw);
+      settings.save(d.groq || '', d.pat || '', d.repo || '', !!d.auto);
+      loadSettingsForm();
+      $('#setup-banner').classList.toggle('hidden', settings.ready);
+      alert('復元しました ✓');
+    } catch { alert('形式が読み取れませんでした。書き出したままの文字列を貼り付けてください。'); }
+  };
+
   $('#btn-capture').onclick = () => {
     if (!settings.ready) { loadSettingsForm(); showView('view-settings'); return; }
     openSheet();

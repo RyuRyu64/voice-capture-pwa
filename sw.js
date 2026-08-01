@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'voice-capture-v3';
+const CACHE = 'voice-capture-v4';
 const ASSETS = [
   './',
   './index.html',
