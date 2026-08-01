@@ -11,13 +11,20 @@ const settings = {
   get groqKey() { return localStorage.getItem('vc_groq') || ''; },
   get pat() { return localStorage.getItem('vc_pat') || ''; },
   get repo() { return localStorage.getItem('vc_repo') || DEFAULT_REPO; },
-  save(groq, pat, repo) {
+  get auto() { return localStorage.getItem('vc_auto') === '1'; },
+  save(groq, pat, repo, auto) {
     localStorage.setItem('vc_groq', groq.trim());
     localStorage.setItem('vc_pat', pat.trim());
     localStorage.setItem('vc_repo', (repo.trim() || DEFAULT_REPO).replace(/^https:\/\/github\.com\//, ''));
+    localStorage.setItem('vc_auto', auto ? '1' : '');
   },
   get ready() { return !!(this.groqKey && this.pat); },
 };
+
+// ハンズフリー: 設定ON、またはURLに ?auto=1（Siriショートカットから起動する用）
+const autoMode = () => settings.auto || new URLSearchParams(location.search).has('auto');
+// 無音検知パラメータ: 発話後この時間静かなら録音終了
+const SILENCE_MS = 2500, MIN_REC_MS = 1500, MAX_REC_MS = 90000, LOUD_THRESHOLD = 12;
 
 let draft = null; // {transcript, type, title, slug, what, where, when, urgency, tags, body}
 
@@ -68,6 +75,7 @@ function hideError() { $('#sheet-error').classList.add('hidden'); }
 /* ---------- 録音 ---------- */
 let mediaStream = null, recorder = null, chunks = [], recMime = '';
 let audioCtx = null, analyser = null, rafId = 0;
+let recStartTs = 0, lastLoudTs = 0, hasSpoken = false;
 
 function pickMime() {
   const candidates = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
@@ -87,9 +95,14 @@ async function startRecording() {
   recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
   recorder.onstop = onRecordingStopped;
   recorder.start();
+  recStartTs = performance.now();
+  lastLoudTs = 0;
+  hasSpoken = false;
   startMeter();
   $('#btn-rec').classList.add('recording');
-  $('#rec-status').textContent = '録音中… タップで終了';
+  $('#rec-status').textContent = autoMode()
+    ? '録音中… 喋り終えると自動で保存されます'
+    : '録音中… タップで終了';
 }
 
 function stopRecording(cancel = false) {
@@ -118,6 +131,19 @@ function startMeter() {
       bar.style.height = `${6 + v * 32}px`;
       bar.style.opacity = 0.35 + v * 0.65;
     });
+    // 無音検知（ハンズフリー時のみ自動停止）
+    if (recorder && recorder.state === 'recording') {
+      const avg = data.reduce((a, b) => a + b, 0) / data.length;
+      const now = performance.now();
+      if (avg > LOUD_THRESHOLD) { lastLoudTs = now; hasSpoken = true; }
+      if (autoMode()) {
+        const tooLong = now - recStartTs > MAX_REC_MS;
+        const doneSpeaking = hasSpoken
+          && now - recStartTs > MIN_REC_MS
+          && now - lastLoudTs > SILENCE_MS;
+        if (tooLong || doneSpeaking) { stopRecording(); return; }
+      }
+    }
     rafId = requestAnimationFrame(draw);
   };
   draw();
@@ -206,6 +232,10 @@ async function structureAndPreview(transcript) {
   const s = await structureText(transcript);
   draft = { transcript, ...s };
   renderPreview();
+  if (autoMode()) {
+    await saveDraft(); // ハンズフリー時は確認をスキップして直接保存
+    return;
+  }
   showStage('stage-preview');
 }
 
@@ -419,11 +449,28 @@ function init() {
   renderHistory();
   $('#setup-banner').classList.toggle('hidden', settings.ready);
 
+  // ハンズフリー: 開いた瞬間に録音開始（Siriショートカット→Open App想定）
+  if (autoMode() && settings.ready) {
+    openSheet();
+    startRecording();
+  }
+
   $('#btn-settings').onclick = () => { loadSettingsForm(); showView('view-settings'); };
   $('#btn-goto-settings').onclick = () => { loadSettingsForm(); showView('view-settings'); };
   $('#btn-settings-back').onclick = () => showView('view-home');
+  // iOSはアプリを閉じてもプロセスが生きるため、Siriからの再起動は「復帰」になる。
+  // 復帰時もハンズフリーなら新しいキャプチャを開始する
+  document.addEventListener('visibilitychange', () => {
+    const busy = (recorder && recorder.state === 'recording')
+      || !$('#stage-processing').classList.contains('hidden');
+    if (document.visibilityState === 'visible' && autoMode() && settings.ready && !busy) {
+      openSheet();
+      startRecording();
+    }
+  });
+
   $('#btn-save-settings').onclick = () => {
-    settings.save($('#input-groq').value, $('#input-pat').value, $('#input-repo').value);
+    settings.save($('#input-groq').value, $('#input-pat').value, $('#input-repo').value, $('#input-auto').checked);
     $('#settings-saved').classList.remove('hidden');
     $('#setup-banner').classList.toggle('hidden', settings.ready);
     setTimeout(() => $('#settings-saved').classList.add('hidden'), 2000);
@@ -474,6 +521,7 @@ function loadSettingsForm() {
   $('#input-groq').value = settings.groqKey;
   $('#input-pat').value = settings.pat;
   $('#input-repo').value = settings.repo;
+  $('#input-auto').checked = settings.auto;
 }
 
 document.addEventListener('DOMContentLoaded', init);

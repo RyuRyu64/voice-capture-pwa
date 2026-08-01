@@ -116,6 +116,9 @@ body {
   flex: 1; border: none; background: none; color: var(--text);
   font-size: 15px; outline: none; min-height: 28px;
 }
+.form-row input[type="checkbox"] {
+  flex: 0 0 auto; width: 22px; height: 22px; accent-color: var(--accent);
+}
 .form-note { font-size: 12px; color: var(--text-2); margin: 8px 8px 16px; line-height: 1.6; }
 .form-note.ok { color: var(--ok); font-weight: 600; }
 

@@ -59,8 +59,13 @@
         <span>リポジトリ</span>
         <input type="text" id="input-repo" placeholder="RyuRyu64/To-Do-Manager" autocomplete="off">
       </label>
+      <label class="form-row">
+        <span>ハンズフリー</span>
+        <input type="checkbox" id="input-auto">
+      </label>
     </div>
-    <p class="form-note">キーはこの端末の localStorage にのみ保存され、GroqとGitHub以外には送信されません。</p>
+    <p class="form-note">キーはこの端末の localStorage にのみ保存され、GroqとGitHub以外には送信されません。<br>
+    ハンズフリーをONにすると、アプリを開いた瞬間に録音が始まり、喋り終えて無音が続くと自動で文字起こし→保存まで完了します（確認画面なし）。Siriショートカットと組み合わせて使う想定です。</p>
     <button id="btn-save-settings" class="primary-btn">保存</button>
     <p id="settings-saved" class="form-note ok hidden">保存しました ✓</p>
   </section>
